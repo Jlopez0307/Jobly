@@ -1,7 +1,7 @@
 "use strict";
 
 const db = require("../db");
-const { BadRequestError, NotFoundError } = require("../expressError");
+const { BadRequestError, NotFoundError, ExpressError } = require("../expressError");
 const { sqlForPartialUpdate } = require("../helpers/sql");
 
 /** Related functions for companies. */
@@ -83,6 +83,55 @@ class Company {
     const company = companyRes.rows[0];
 
     if (!company) throw new NotFoundError(`No company: ${handle}`);
+
+    return company;
+  }
+
+  /**
+   * Passes through a string to find companies
+   * Returns { handle, name, description, numEmployees, logoURL }
+   * 
+   * Optional parameters of minEmployees and maxEmployees to search for companies based on name & num_employees
+   * 
+   * data can be: [ 'st', 50, 1000 ]
+   * Returns companies with names containing 'st' and with at least 50-1000 employees 
+   * 
+   * Throws NotFound error if not found
+   * Throws Express error if min is greater than or equal to max
+   */
+
+  static async filter(companyName, minEmployees, maxEmployees){
+    let companiesRes
+
+    if(minEmployees > maxEmployees || minEmployees === maxEmployees){
+      throw new ExpressError(`Minimum cant be greater than or equal to maximum`, 400)
+
+    } else if(companyName && (!minEmployees && !maxEmployees)){
+      companiesRes = await db.query(
+        `SELECT handle,
+                name,
+                description,
+                num_employees AS "numEmployees",
+                logo_url AS "logoUrl"
+         FROM companies
+         WHERE LOWER(name) LIKE LOWER('%' || $1 || '%')`,
+      [companyName]);
+    } else if( companyName && (minEmployees < maxEmployees)){
+      companiesRes = await db.query(
+        `SELECT handle,
+                name,
+                description,
+                num_employees AS "numEmployees",
+                logo_url AS "logoUrl"
+         FROM companies
+         WHERE LOWER(name) LIKE LOWER('%' || $1 || '%')
+         AND num_employees >= $2 AND num_employees <= $3`,
+      [companyName, minEmployees, maxEmployees]);
+    }
+
+    const company  = companiesRes.rows;
+
+    if(!company) throw new NotFoundError(`No company mathching: ${companyName}`);
 
     return company;
   }

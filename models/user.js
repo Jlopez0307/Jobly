@@ -18,7 +18,7 @@ class User {
    *
    * Returns { username, first_name, last_name, email, is_admin }
    *
-   * Throws UnauthorizedError is user not found or wrong password.
+   * Throws UnauthorizedError if user not found or wrong password.
    **/
 
   static async authenticate(username, password) {
@@ -43,11 +43,11 @@ class User {
       if (isValid === true) {
         delete user.password;
         return user;
-      }
-    }
+      };
+    };
 
     throw new UnauthorizedError("Invalid username/password");
-  }
+  };
 
   /** Register user with data.
    *
@@ -67,7 +67,7 @@ class User {
 
     if (duplicateCheck.rows[0]) {
       throw new BadRequestError(`Duplicate username: ${username}`);
-    }
+    };
 
     const hashedPassword = await bcrypt.hash(password, BCRYPT_WORK_FACTOR);
 
@@ -94,7 +94,7 @@ class User {
     const user = result.rows[0];
 
     return user;
-  }
+  };
 
   /** Find all users.
    *
@@ -113,7 +113,7 @@ class User {
     );
 
     return result.rows;
-  }
+  };
 
   /** Given a username, return data about user.
    *
@@ -131,16 +131,28 @@ class User {
                   email,
                   is_admin AS "isAdmin"
            FROM users
-           WHERE username = $1`,
+           WHERE username = $1
+           `,
         [username],
     );
 
+    const jobResults = await db.query(`
+        SELECT job_id
+        FROM applications
+        WHERE username = $1`,
+        [username]
+      );
+
     const user = userRes.rows[0];
+    const jobs = jobResults.rows;
 
     if (!user) throw new NotFoundError(`No user: ${username}`);
 
-    return user;
-  }
+    return { 
+      users: user, 
+      jobs: jobs
+    };
+  };
 
   /** Update user data with `data`.
    *
@@ -162,7 +174,7 @@ class User {
   static async update(username, data) {
     if (data.password) {
       data.password = await bcrypt.hash(data.password, BCRYPT_WORK_FACTOR);
-    }
+    };
 
     const { setCols, values } = sqlForPartialUpdate(
         data,
@@ -188,7 +200,7 @@ class User {
 
     delete user.password;
     return user;
-  }
+  };
 
   /** Delete given user from database; returns undefined. */
 
@@ -203,8 +215,20 @@ class User {
     const user = result.rows[0];
 
     if (!user) throw new NotFoundError(`No user: ${username}`);
-  }
-}
+  };
+
+  static async apply(username, jobId){
+    let result = await db.query(`
+      INSERT INTO applications
+      VALUES ($1,$2)
+      RETURNING username`, [username, jobId]);
+
+      const userApp = result.rows[0];
+
+      if(!userApp) throw new BadRequestError(`Invalid username or job id!`);
+      return userApp;
+  };
+};
 
 
 module.exports = User;

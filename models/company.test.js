@@ -87,6 +87,23 @@ describe("findAll", function () {
   });
 });
 
+/************************************** filter */
+
+describe("filter", function () {
+  test("works", async function () {
+    let companies = await Company.filter('c', 0, 1);
+    expect(companies).toEqual([
+      {
+        handle: "c1",
+        name: "C1",
+        description: "Desc1",
+        numEmployees: 1,
+        logoUrl: "http://c1.img",
+      }
+    ]);
+  });
+});
+
 /************************************** get */
 
 describe("get", function () {
